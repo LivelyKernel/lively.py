@@ -5,3 +5,12 @@
 # License
 
 [MIT](LICENSE.txt)
+
+
+<!--
+upload to PyPi:
+
+python setup.py sdist
+
+
+-->
