@@ -9,12 +9,12 @@ with open(path.join(here, 'README'), encoding='utf-8') as f:
 
 setup(
     name = 'lively-toolbox',
-    version = '0.1.0',
+    version = '0.1.1',
     description = 'Lively comes to Python',
     author = 'Robert Krahn',
     author_email = 'robert.krahn@gmail.com',
     url = 'https://github.com/rksm/lively-toolbox-py',
-    download_url = 'https://github.com/rksm/lively-toolbox-py/archive/0.1.0.tar.gz',
+    download_url = 'https://github.com/rksm/lively-toolbox-py/archive/0.1.1.tar.gz',
     keywords = ['lively', 'live programming', 'ide', 'programming tools'],
     long_description=long_description,
     license='MIT',
