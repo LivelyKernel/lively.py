@@ -9,7 +9,7 @@ with open(path.join(here, 'README'), encoding='utf-8') as f:
 
 setup(
     name = 'lively-toolbox',
-    version = '0.1.1',
+    version = '0.1.2',
     description = 'Lively comes to Python',
     author = 'Robert Krahn',
     author_email = 'robert.krahn@gmail.com',
