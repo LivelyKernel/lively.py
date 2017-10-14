@@ -1,3 +1,5 @@
+import ast
+
 def print_ast(node):
     def __print__(node, path):
         if len(path) > 0:
@@ -19,6 +21,7 @@ def visit_ast(node, path = []):
                     yield from visit_ast(item, path + [[field, n]])
         elif isinstance(value, ast.AST):
             yield from visit_ast(value, path + [[field]])
+
 
 # import astor
 # print(astor.codegen.to_source(parsed))

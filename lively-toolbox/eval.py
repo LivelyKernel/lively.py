@@ -1,4 +1,6 @@
 import ast
+import asyncio
+import json
 from logging import warning
 
 
@@ -8,6 +10,13 @@ class EvalResult(object):
         self.value = value
         self.isError = isError
         self.isEvalResult = True
+
+    def json_stringify(self):
+        return json.dumps({
+            'isError': self.isError,
+            "isEvalResult": True,
+            "value": repr(self.value)
+        })
 
 
 class Evaluation(object):
@@ -20,8 +29,10 @@ class Evaluation(object):
                            "try:\n"
                            "    import asyncio\n"
                            "    loop = asyncio.get_event_loop()\n"
-                           "    task = loop.create_task(__eval__())\n"
-                           "    loop.run_until_complete(asyncio.wait([task]))\n"
+                           "    future = asyncio.ensure_future(__eval__(), loop=loop)\n"
+                           "    future.add_done_callback(lambda f: __eval_done__(f.exception() or f.result(), bool(f.exception())))\n"
+                           "    if not loop.is_running():"
+                           "        loop.run_until_complete(future)\n"
                            "except Exception as exc:\n"
                            "    __eval_done__(exc, True)\n")
 
@@ -63,10 +74,9 @@ class Evaluation(object):
 
         last_expr = parsed.body[0].body[-1]
         if (isinstance(last_expr, ast.Expr)):
-            # transform so last expression is passed to callback function
             parsed.body[0].body[-1] = ast.Return(value=last_expr.value)
         else:
-            parsed.body.append(ast.Return(value=ast.NameConstant(value=None)))
+            parsed.body[0].body.append(ast.Return(value=ast.NameConstant(value=None)))
 
         return ast.fix_missing_locations(parsed)
 
@@ -76,17 +86,30 @@ class Evaluation(object):
             "\n        ".join(source.splitlines()))
         parsed = ast.parse(callable_source, mode='exec')
 
+        # return the last expression
         last_expr = parsed.body[0].body[-1]
+        ret_val = last_expr.value if isinstance(last_expr, ast.Expr) else ast.NameConstant(value=None)
+        ret_assign = ast.Assign(targets=[ast.Name(id='__eval_result__', ctx=ast.Store())], value=ret_val)
         if (isinstance(last_expr, ast.Expr)):
-            # transform so last expression is passed to callback function
-            parsed.body[0].body[-1] = ast.Expr(value=ast.Call(
-                func=ast.Name(id='__eval_done__', ctx=ast.Load()),
-                args=[last_expr.value], keywords=[]))
+            parsed.body[0].body[-1] = ret_assign
         else:
-            parsed.body.append(
-                ast.Expr(value=ast.Call(
-                    func=ast.Name(id='__eval_done__', ctx=ast.Load()),
-                    args=[ast.NameConstant(value=None)], keywords=[])))
+            parsed.body[0].body.append(ret_assign)
+        # copy locals into globals so we "record" them
+        parsed.body[0].body.extend(
+          ast.parse(("for k,v in locals().items():\n"
+                     "    globals().__setitem__(k, v)\n"
+                     "return __eval_result__")).body)
+        
+        # if (isinstance(last_expr, ast.Expr)):
+        #     # transform so last expression is passed to callback function
+        #     parsed.body[0].body[-1] = ast.Expr(value=ast.Call(
+        #         func=ast.Name(id='__eval_done__', ctx=ast.Load()),
+        #         args=[last_expr.value], keywords=[]))
+        # else:
+        #     parsed.body.append(
+        #         ast.Expr(value=ast.Call(
+        #             func=ast.Name(id='__eval_done__', ctx=ast.Load()),
+        #             args=[ast.NameConstant(value=None)], keywords=[])))
 
         return ast.fix_missing_locations(parsed)
 
@@ -107,7 +130,7 @@ class Evaluation(object):
                 self.result = EvalResult(value, isError)
                 self.status = "done"
 
-        g = dict(g)
+        # g = dict(g)
         g.__setitem__("__eval_done__", __eval_done__)
         g.__setitem__("__eval_done_called__", False)
         exec(compile(parsed, '<lively_eval>', 'exec'), g, l)
@@ -115,7 +138,7 @@ class Evaluation(object):
         return self.result
 
     def run_eval(self, when_done, g = globals(), l = locals()):
-        valid, errors = self.is_valid(source, True)
+        valid, errors = self.is_valid(self.source, True)
         if not valid:
             raise Exception("pre-eval errors:\n{}".format("\n".join(errors)))
 
@@ -124,17 +147,22 @@ class Evaluation(object):
         parsed = self.prepare_source_async(self.source)
 
         def __eval_done__(value, isError = False):
-            if (g.get("__eval_done_called__")):
+            call_count = g.get("__eval_done_called__")
+            if (call_count > 0):
                 warning("run_eval done callback was called multiple times, ignoring")
             else:
-                g.__setitem__("__eval_done_called__", True)
+                g.__setitem__("__eval_done_called__", call_count+1)
                 self.result = EvalResult(value, isError)
                 self.status = "done"
                 when_done(self.result)
 
-        g = dict(g)
+        # g = dict(g)
         g.__setitem__("__eval_done__", __eval_done__)
-        g.__setitem__("__eval_done_called__", False)
+        g.__setitem__("__eval_done_called__", 0)
+
+        # import astor
+        # print("Running code", astor.codegen.to_source(parsed))
+
         exec(compile(parsed, '<lively_eval>', 'exec'), g, l)
 
         return self
@@ -142,16 +170,26 @@ class Evaluation(object):
 def sync_eval(source, glob = globals(), loc = locals()):
     return Evaluation(source).sync_eval(glob, loc)
 
-def run_eval(source, when_done_fn, glob = globals(), loc = locals()):
-    return Evaluation(source).run_eval(when_done_fn, glob, loc)
+def run_eval(source, glob = globals(), loc = locals()):
+    result_fut = asyncio.Future()
+    Evaluation(source).run_eval(
+        lambda result: result_fut.set_result(result), glob, loc)
+    return result_fut
 
+
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def example():
     e = Evaluation("1+2\n23")
     e.run_eval(lambda val: print(print_obj(val)))
     print_obj(e.sync_eval())
     e.result.value
-
-def example2():
     sync_eval("1 + 2")
-    run_eval("1 + 2", lambda result: print(result.value))
+
+async def example2():
+    """
+    run with
+    asyncio.get_event_loop().run_until_complete(example2())
+    """
+    result = await run_eval("1 + 2")
+    print(result.__dict__)
