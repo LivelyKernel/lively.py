@@ -1,6 +1,6 @@
 import inspect
 import jedi
-from eval import run_eval
+from .eval import run_eval
 
 async def get_completions(source, row, column, file):
     compl_data = []
