@@ -3,8 +3,8 @@ import datetime
 import random
 import sys
 import json
-import websockets
 import traceback
+import websockets
 from .eval import run_eval
 from .completions import get_completions
 from yapf.yapflib.yapf_api import FormatCode

@@ -1,21 +1,20 @@
 from setuptools import setup, find_packages
-from codecs import open
-from os import path
 
 here = path.abspath(path.dirname(__file__))
+version = "0.1.0"
 
 with open(path.join(here, 'README'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name = 'lively-toolbox',
-    version = '0.1.2',
+    name = 'lively',
+    version = version,
     description = 'Lively comes to Python',
     author = 'Robert Krahn',
     author_email = 'robert.krahn@gmail.com',
-    url = 'https://github.com/rksm/lively-toolbox-py',
-    download_url = 'https://github.com/rksm/lively-toolbox-py/archive/0.1.1.tar.gz',
-    keywords = ['lively', 'live programming', 'ide', 'programming tools'],
+    url = 'https://github.com/rksm/lively.py',
+    download_url = 'https://github.com/rksm/lively.py/archive/{}.tar.gz'.format(version),
+    keywords = ['lively', "Lively Kernel", 'live programming', 'ide', 'programming tools'],
     long_description=long_description,
     license='MIT',
 
@@ -46,7 +45,11 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=[],
+    install_requires=[
+      "yapf",
+      "jedi",
+      "websockets"
+    ],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
