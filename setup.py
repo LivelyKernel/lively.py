@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
+from os import path
 
 here = path.abspath(path.dirname(__file__))
-version = "0.1.0"
+version = "0.1.1"
 
 with open(path.join(here, 'README'), encoding='utf-8') as f:
     long_description = f.read()
@@ -35,7 +36,6 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    # packages = ['lively_toolbox'],
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
 
     # Alternatively, if you want to distribute just a my_module.py:
@@ -71,6 +71,6 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        # 'console_scripts': ['sample=sample:main'],
-    },
+        'console_scripts': ['lively.py-server=lively.command_line:main'],
+    }
 )

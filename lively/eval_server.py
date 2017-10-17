@@ -84,13 +84,13 @@ async def handle_message(message, websocket, path):
 connections = set()
 
 async def handler(websocket, path):
-    print("got connection")
+    if debug: print("got connection")
     connections.add(websocket)
     while True:
         try:
             message = await websocket.recv()
         except websockets.exceptions.ConnectionClosed:
-            print("connection closed")
+            if debug: print("connection closed")
             connections.remove(websocket)
             break
         # if debug: print("got " + message)
@@ -109,7 +109,7 @@ async def handler(websocket, path):
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # server start
 
-default_port = 5678
+default_port = 9942
 default_host = "127.0.0.1"
 
 def start(hostname=default_host,
@@ -119,17 +119,3 @@ def start(hostname=default_host,
     loop.run_until_complete(serve)
     print("server listening on {}:{}".format(hostname, port))
     return serve
-
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-# main
-import sys
-import argparse
-
-if __name__ == "__main__" and sys.argv[0] == "eval-server.py":
-    parser = argparse.ArgumentParser(description='Starts a websocket server for eval requests')
-    parser.add_argument('--hostname', dest="hostname", type=str, default=default_host, help='hostname, defaults to '.format(default_host))
-    parser.add_argument('--port', dest="port", type=int, help='port, defaults to {}'.format(default_port))
-    args = parser.parse_args()
-    loop = asyncio.get_event_loop()
-    start(args.hostname, args.port, loop)
-    loop.run_forever()
