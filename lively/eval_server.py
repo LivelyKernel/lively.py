@@ -7,8 +7,7 @@ import traceback
 import websockets
 from .eval import run_eval
 from .completions import get_completions
-from yapf.yapflib.yapf_api import FormatCode
-
+from .code_formatting import code_format
 
 def test():
     loop = asyncio.get_event_loop()
@@ -49,15 +48,15 @@ async def handle_code_format(data, websocket):
     if not "source" in data: return await websocket.send(json.dumps({"error": "needs source"}))
 
     try:
-      (formatted_code, success) = FormatCode(
-        data.get("source"),
-        lines=data.get("lines"),
-        filename=data.get("file") or "<unknown>",
-        style_config=data.get("style"))
-      if debug: print("code_format done")
-      answer = formatted_code;
+        formatted_code = code_format(
+            data.get("source"),
+            data.get("lines"),
+            data.get("file") or "<unknown>",
+            data.get("style"))
+        if debug: print("code_format done")
+        answer = formatted_code;
     except Exception as err:
-      answer = json.dumps({'error': str(err)})
+        answer = json.dumps({'error': str(err)})
     print(data.get("lines"))
     await websocket.send(json.dumps(answer))
 
