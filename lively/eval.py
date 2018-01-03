@@ -120,7 +120,7 @@ class Evaluation(object):
         return ast.fix_missing_locations(parsed)
 
     def sync_eval(self, g=globals(), l=locals()):
-        valid, errors = self.is_valid(source, False)
+        valid, errors = self.is_valid(self.source, False)
         if not valid:
             raise Exception("pre-eval errors:\n{}".format("\n".join(errors)))
 
