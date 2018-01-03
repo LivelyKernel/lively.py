@@ -1,4 +1,5 @@
 import asyncio
+from multiprocessing import Process
 import datetime
 import random
 import sys
@@ -118,3 +119,13 @@ def start(hostname=default_host,
     loop.run_until_complete(serve)
     print("server listening on {}:{}".format(hostname, port))
     return serve
+
+def start_in_subprocess(**opts):
+    def spawn():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        start(**{**opts, "loop": loop})
+        loop.run_forever()
+    process = Process(target=spawn, kwargs=opts)
+    process.start()
+    return process
