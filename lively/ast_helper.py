@@ -1,5 +1,6 @@
 import ast
 
+
 def print_ast(node):
     def __print__(node, path):
         if len(path) > 0:
@@ -9,9 +10,10 @@ def print_ast(node):
             " " * len(path),
             node.__class__.__name__,
             ".".join(map(str, path_from_parent)))
-    return "\n".join([__print__(node, path) for node,path in visit_ast(node)])
+    return "\n".join([__print__(node, path) for node, path in visit_ast(node)])
 
-def visit_ast(node, path = []):
+
+def visit_ast(node, path=[]):
     """simple linear generator for nodes and their path"""
     yield (node, path)
     for field, value in ast.iter_fields(node):

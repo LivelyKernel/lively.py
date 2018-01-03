@@ -1,20 +1,19 @@
-import ast
+import sys
 import asyncio
 import json
+import ast
 from logging import warning
-
 
 class EvalResult(object):
     """result of run_eval"""
 
-    def __init__(self, value, isError=False):
+    def __init__(self, value, is_error=False):
         self.value = value
-        self.isError = isError
-        self.isEvalResult = True
+        self.is_error = is_error
 
     def json_stringify(self):
         return json.dumps({
-            'isError': self.isError,
+            'isError': self.is_error,
             "isEvalResult": True,
             "value": repr(self.value)
         })
@@ -48,10 +47,11 @@ class Evaluation(object):
     status = "not started"
     result = None
 
-    def __init__(self, source):
+    def __init__(self, source, module_name):
         self.source = source
+        self.module_name = module_name
 
-    def is_valid(self, source, allow_async=False):
+    def is_valid(self, source, allow_async=False, module=None):
         source = self.__validation_template__.format("\n        ".join(
             source.splitlines()))
         parsed = ast.parse(source, mode='exec')
@@ -69,23 +69,8 @@ class Evaluation(object):
                 errors.append(msg)
         return (len(errors) == 0, errors)
 
-    def prepare_source_sync(self, source):
-        callable_source = self.__sync_template__.format(
-            "\n        ".join(source.splitlines()))
-        parsed = ast.parse(callable_source, mode='exec')
-
-        last_expr = parsed.body[0].body[-1]
-        if (isinstance(last_expr, ast.Expr)):
-            parsed.body[0].body[-1] = ast.Return(value=last_expr.value)
-        else:
-            parsed.body[0].body.append(
-                ast.Return(value=ast.NameConstant(value=None)))
-
-        return ast.fix_missing_locations(parsed)
-
-    def prepare_source_async(self, source):
-        # wrap code in a function and call it so we can do async stuff
-        callable_source = self.__async_template__.format(
+    def prepare_source(self, source, template):
+        callable_source = template.format(
             "\n        ".join(source.splitlines()))
         parsed = ast.parse(callable_source, mode='exec')
 
@@ -102,87 +87,80 @@ class Evaluation(object):
             parsed.body[0].body.append(ret_assign)
         # copy locals into globals so we "record" them
         parsed.body[0].body.extend(
-            ast.parse(("for k,v in locals().items():\n"
-                       "    globals().__setitem__(k, v)\n"
+            ast.parse(("globals().update(locals())\n"
                        "return __eval_result__")).body)
-
-        # if (isinstance(last_expr, ast.Expr)):
-        #     # transform so last expression is passed to callback function
-        #     parsed.body[0].body[-1] = ast.Expr(value=ast.Call(
-        #         func=ast.Name(id='__eval_done__', ctx=ast.Load()),
-        #         args=[last_expr.value], keywords=[]))
-        # else:
-        #     parsed.body.append(
-        #         ast.Expr(value=ast.Call(
-        #             func=ast.Name(id='__eval_done__', ctx=ast.Load()),
-        #             args=[ast.NameConstant(value=None)], keywords=[])))
 
         return ast.fix_missing_locations(parsed)
 
-    def sync_eval(self, g=globals(), l=locals()):
-        valid, errors = self.is_valid(self.source, False)
-        if not valid:
-            raise Exception("pre-eval errors:\n{}".format("\n".join(errors)))
-
-        self.status = "started"
-        parsed = self.prepare_source_sync(self.source)
-
-        def __eval_done__(value, isError=False):
-            if (g.get("__eval_done_called__")):
-                warning(
-                    "sync_eval done callback was called multiple times, ignoring"
-                )
-            else:
-                g.__setitem__("__eval_done_called__", True)
-                self.result = EvalResult(value, isError)
-                self.status = "done"
-
-        # g = dict(g)
-        g.__setitem__("__eval_done__", __eval_done__)
-        g.__setitem__("__eval_done_called__", False)
-        exec(compile(parsed, '<lively_eval>', 'exec'), g, l)
-
+    def sync_eval(self):
+        """Evaluates self.source and returns EvalResult object synchronously. Changes in
+        the module __dict__ of self.module_name will persist, such as declared toplevel
+        variables."""
+        self.__eval__(self.__sync_template__)
         return self.result
 
-    def run_eval(self, when_done, g = globals(), l = locals()):
+    def run_eval(self, when_done):
+        """Evaluates self.source and calls when_done callback with EvalResult object.
+        the module __dict__ of self.module_name will persist, such as declared toplevel
+        variables."""
+        return self.__eval__(self.__async_template__, when_done)
+
+    def __eval__(self, code_template, when_done=None):
+        "internal, do not use"
+
+        # if module is specified, look it up. If not loaded, import it.
+        eval_in_module = sys.modules.get(self.module_name or __name__)
+        if not eval_in_module:
+            __import__(self.module_name)
+            eval_in_module = sys.modules.get(self.module_name or __name__)
+
+        if not eval_in_module:
+            raise Exception("[lively eval] could not find module " + self.module_name)
+
+        # globals, locals for eval
+        _globals = eval_in_module.__dict__
+        _locals = eval_in_module.__dict__
+
         valid, errors = self.is_valid(self.source, True)
         if not valid:
             raise Exception("pre-eval errors:\n{}".format("\n".join(errors)))
 
         self.status = "started"
 
-        parsed = self.prepare_source_async(self.source)
+        parsed = self.prepare_source(self.source, code_template)
 
-        def __eval_done__(value, isError = False):
-            call_count = g.get("__eval_done_called__")
+        def __eval_done__(value, is_error=False):
+            call_count = _globals.get("__eval_done_called__")
             if (call_count > 0):
-                warning("run_eval done callback was called multiple times, ignoring")
+                warning("[lively eval] done callback was called multiple times, ignoring")
             else:
-                g.__setitem__("__eval_done_called__", call_count+1)
-                self.result = EvalResult(value, isError)
+                _globals.__setitem__("__eval_done_called__", call_count + 1)
+                self.result = EvalResult(value, is_error)
                 self.status = "done"
-                when_done(self.result)
+                if when_done:
+                    when_done(self.result)
 
-        # g = dict(g)
-        g.__setitem__("__eval_done__", __eval_done__)
-        g.__setitem__("__eval_done_called__", 0)
+        _globals.__setitem__("__eval_done__", __eval_done__)
+        _globals.__setitem__("__eval_done_called__", 0)
 
-        # import astor
-        # print("Running code", astor.codegen.to_source(parsed))
-
-        exec(compile(parsed, '<lively_eval>', 'exec'), g, l)
+        exec(compile(parsed, eval_in_module.__file__, 'exec'), _globals, _locals)
 
         return self
 
 
-def sync_eval(source, glob=globals(), loc=locals()):
-    return Evaluation(source).sync_eval(glob, loc)
+def sync_eval(source, module_name=None):
+    """
+    Evaluate source inside module specified by module_name and return EvalObject with properties value and is_error
+    """
+    return Evaluation(source, module_name).sync_eval()
 
 
-def run_eval(source, glob=globals(), loc=locals()):
+def run_eval(source, module_name=None):
+    """Evalualtes source in module specified by module_name and returns future. Note
+    that you can use top-level await statements inside source."""
     result_fut = asyncio.Future()
-    Evaluation(source).run_eval(lambda result: result_fut.set_result(result),
-                                glob, loc)
+    Evaluation(source, module_name).run_eval(
+        lambda result: result_fut.set_result(result))
     return result_fut
 
 
@@ -190,8 +168,8 @@ def run_eval(source, glob=globals(), loc=locals()):
 
 def example():
     e = Evaluation("1+2\n23")
-    e.run_eval(lambda val: print(print_obj(val)))
-    print_obj(e.sync_eval())
+    e.run_eval(lambda val: print(print(val)))
+    print(e.sync_eval())
     e.result.value
     sync_eval("1 + 2")
 
