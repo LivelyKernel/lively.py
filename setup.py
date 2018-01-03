@@ -1,11 +1,17 @@
 from setuptools import setup, find_packages
 from os import path
+import unittest
 
 here = path.abspath(path.dirname(__file__))
 version = "0.1.1"
 
-with open(path.join(here, 'README'), encoding='utf-8') as f:
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
+
+def tests():
+    test_loader = unittest.TestLoader()
+    test_suite = test_loader.discover('tests', top_level_dir="lively")
+    return test_suite
 
 setup(
     name = 'lively',
@@ -18,6 +24,8 @@ setup(
     keywords = ['lively', "Lively Kernel", 'live programming', 'ide', 'programming tools'],
     long_description=long_description,
     license='MIT',
+
+    test_suite='setup.tests',
 
     classifiers=[
         # How mature is this project? Common values are
@@ -56,8 +64,7 @@ setup(
     # for example:
     # $ pip install -e .[dev,test]
     extras_require={
-        'dev': [],
-        'test': [],
+        'dev': []
     },
 
     # If there are data files included in your packages that need to be
