@@ -38,10 +38,10 @@ async def handle_completion(data, websocket):
     if not "column" in data: return await websocket.send(json.dumps({"error": "needs column"}))
 
     completions = await get_completions(
-      data.get("source"),
-      data.get("row"),
-      data.get("column"),
-      data.get("file") or "__workspace__.py")
+        data.get("source"),
+        data.get("row"),
+        data.get("column"),
+        data.get("file") or "__workspace__.py")
     if debug: print("completions: {}".format(len(completions)))
     await websocket.send(json.dumps(completions))
 
@@ -112,9 +112,13 @@ async def handler(websocket, path):
 default_port = 9942
 default_host = "127.0.0.1"
 
+def fix_pager():
+    __import__("os").environ['PAGER'] = 'cat'
+
 def start(hostname=default_host,
           port=default_port,
           loop=asyncio.get_event_loop()):
+    fix_pager()
     serve = websockets.serve(handler, hostname, port)
     loop.run_until_complete(serve)
     print("server listening on {}:{}".format(hostname, port))
