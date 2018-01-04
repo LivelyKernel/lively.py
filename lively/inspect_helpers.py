@@ -1,19 +1,23 @@
+import math
+from collections import Iterable
+import pprint
+
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # tree printing
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def print_tree(node, print_fn, child_fn, depth = 0):
+def print_tree(node, print_fn, child_fn, depth=0):
     printed = print_fn(node)
     children = child_fn(node)
     if children and len(children) > 0:
         child_lines = []
-        *first,last = children
+        *first, last = children
         for child in first:
             printed_child = print_tree(child, print_fn, child_fn, depth + 1)
-            first_line,*rest_lines = printed_child.splitlines()
+            first_line, *rest_lines = printed_child.splitlines()
             child_lines.append("|-" + first_line)
             child_lines.extend(map(lambda line: "| " + line, rest_lines))
-        first_last,*rest_last = print_tree(last, print_fn, child_fn, depth + 1).splitlines()
+        first_last, *rest_last = print_tree(last, print_fn, child_fn, depth + 1).splitlines()
         child_lines.append("\-" + first_last)
         child_lines.extend(map(lambda line: "  " + line, rest_last))
         printed += "\n" + "\n".join(child_lines)
@@ -45,7 +49,7 @@ def example1():
 def example2():
     b = {"foo": 23, "bar": 24, "baz": {"zork": 99}}
     print(
-        print_tree(("root",b),
+        print_tree(("root", b),
                    lambda item: item[0] if isinstance(item[1], dict) else "{}: {}".format(*item),
                    lambda item: item[1].items() if isinstance(item[1], dict) else []))
     # =>
@@ -62,15 +66,15 @@ def example2():
 # pretty printing
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def print_obj(obj, max_depth = math.inf):
+def print_obj(obj, max_depth=math.inf):
     return PPrinter().print(obj, max_depth)
 
 class PPrinter():
 
     def __init__(self,
-                 ignore_internal_attrs = False,
-                 max_line_length = 50,
-                 indent = "  "):
+                 ignore_internal_attrs=False,
+                 max_line_length=50,
+                 indent="  "):
         self.ignore_internal_attrs = ignore_internal_attrs
         self.max_line_length = max_line_length
         self.indent = indent
@@ -94,7 +98,7 @@ class PPrinter():
             obj,
             self.__stringify_dict_items__(obj.__dict__, max_depth, depth, False))
 
-    def __stringify_dict_items__(self, dict, max_depth, depth, real_dict = True):
+    def __stringify_dict_items__(self, dict, max_depth, depth, real_dict=True):
         if depth == max_depth:
             return "{...}"
 
@@ -105,15 +109,13 @@ class PPrinter():
         current_row = rows[0]
         row_length = 0
 
-        for k,v in members:
+        for k, v in members:
             if (self.ignore_internal_attrs and k.startswith("__")):
                 continue
             val_string = self.stringify(v, max_depth, depth + 1)
             key_string = "'{}'".format(k) if real_dict else k
             string = "{}: {}".format(key_string, val_string)
-            if (len(current_row) > 0 and
-                (row_length + len(string) > current_max_line_length
-                 or "\n" in string)):
+            if (len(current_row) > 0 and (row_length + len(string) > current_max_line_length or "\n" in string)):
                 current_row = []
                 row_length = 0
                 rows.append(current_row)
@@ -124,9 +126,9 @@ class PPrinter():
         before_indent = ""
         after_indent = ""
         if len(rows) > 1 or row_length > current_max_line_length:
-            members_stringified = map(lambda ea: self.indent*depth + ea, members_stringified)
+            members_stringified = map(lambda ea: self.indent * depth + ea, members_stringified)
             before_indent = "\n"
-            after_indent = "\n" + self.indent * (depth-1)
+            after_indent = "\n" + self.indent * (depth - 1)
 
         return "{{{}{}{}}}".format(
             before_indent,
@@ -145,10 +147,10 @@ class PPrinter():
             items_stringified.append(stringified)
         sep = ",\n{}".format(self.indent * depth) if multi_line else ", "
         before = "\n{}".format(self.indent * depth) if multi_line else ""
-        after = "\n{}".format(self.indent * (depth-1)) if multi_line else ""
+        after = "\n{}".format(self.indent * (depth - 1)) if multi_line else ""
         return "[{}{}{}]".format(before, sep.join(items_stringified), after)
 
-    def stringify(self, obj, max_depth = math.inf, depth = 1):
+    def stringify(self, obj, max_depth=math.inf, depth=1):
         if depth > max_depth:
             return "..."
         if not hasattr(obj, "__dict__"):
@@ -156,7 +158,7 @@ class PPrinter():
                 return self.stringify_str(obj, max_depth, depth)
             if isinstance(obj, dict):
                 return self.__stringify_dict_items__(obj, max_depth, depth, True)
-            if isinstance(obj, collections.Iterable):
+            if isinstance(obj, Iterable):
                 return self.stringify_iterable(obj, max_depth, depth)
             return self.stringify_primitive(obj, max_depth, depth)
         return getattr(self, "stringify_" + type(obj).__name__)(obj, max_depth, depth)
