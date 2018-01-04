@@ -2,7 +2,7 @@ import inspect
 import jedi
 from lively.eval import run_eval
 
-async def get_completions(source, row, column, file):
+async def get_completions(source, row, column, file="<completions>"):
     compl_data = []
 
     # try jedi

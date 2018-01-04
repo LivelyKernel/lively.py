@@ -1,21 +1,16 @@
 import asyncio
 from multiprocessing import Process
-import datetime
-import random
-import sys
 import json
 import traceback
 import websockets
-from .eval import run_eval
-from .completions import get_completions
-from .code_formatting import code_format
+from lively.eval import run_eval
+from lively.completions import get_completions
+from lively.code_formatting import code_format
 
 def test():
     loop = asyncio.get_event_loop()
-    serve = start("0.0.0.0", 9942, loop)
+    start("0.0.0.0", 9942, loop)
 
-# test()
-# serve.server.close()
 
 debug = True
 
@@ -26,27 +21,35 @@ async def handle_eval(data, websocket):
         await websocket.send(json.dumps({"error": "needs source"}))
         return
 
-    if debug: print("evaluating {}".format((source[:30] + "..." if len(source) > 30 else source).replace("\n", "")))
+    if debug:
+        print("evaluating {}".format(
+            (source[:30] + "..." if len(source) > 30 else source).replace("\n", "")))
+
     result = await run_eval(source)
     # if debug: print("eval done", result, result.json_stringify())
     await websocket.send(result.json_stringify())
 
 
 async def handle_completion(data, websocket):
-    if not "source" in data: return await websocket.send(json.dumps({"error": "needs source"}))
-    if not "row" in data: return await websocket.send(json.dumps({"error": "needs row"}))
-    if not "column" in data: return await websocket.send(json.dumps({"error": "needs column"}))
+    if "source" not in data:
+        return await websocket.send(json.dumps({"error": "needs source"}))
+    if "row" not in data:
+        return await websocket.send(json.dumps({"error": "needs row"}))
+    if "column" not in data:
+        return await websocket.send(json.dumps({"error": "needs column"}))
 
     completions = await get_completions(
         data.get("source"),
         data.get("row"),
         data.get("column"),
         data.get("file") or "__workspace__.py")
-    if debug: print("completions: {}".format(len(completions)))
+    if debug:
+        print("completions: {}".format(len(completions)))
     await websocket.send(json.dumps(completions))
 
 async def handle_code_format(data, websocket):
-    if not "source" in data: return await websocket.send(json.dumps({"error": "needs source"}))
+    if "source" not in data:
+        return await websocket.send(json.dumps({"error": "needs source"}))
 
     try:
         formatted_code = code_format(
@@ -54,8 +57,9 @@ async def handle_code_format(data, websocket):
             data.get("lines"),
             data.get("file") or "<unknown>",
             data.get("style"))
-        if debug: print("code_format done")
-        answer = formatted_code;
+        if debug:
+            print("code_format done")
+        answer = formatted_code
     except Exception as err:
         answer = json.dumps({'error': str(err)})
     print(data.get("lines"))
@@ -84,13 +88,15 @@ async def handle_message(message, websocket, path):
 connections = set()
 
 async def handler(websocket, path):
-    if debug: print("got connection")
+    if debug:
+        print("got connection")
     connections.add(websocket)
     while True:
         try:
             message = await websocket.recv()
         except websockets.exceptions.ConnectionClosed:
-            if debug: print("connection closed")
+            if debug:
+                print("connection closed")
             connections.remove(websocket)
             break
         # if debug: print("got " + message)

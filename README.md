@@ -6,18 +6,21 @@
 
 ## Getting started
 
-Starting in subprocess:
+Starting a websocket server endpoint in a subprocess:
+
 ```py
-__import__("lively.eval_server").eval_server.start_in_subprocess()
+from lively.ws_server import start_in_subprocess
+start_in_subprocess()
+
 ```
 
 Starting in main thread and process with event loop passed in by users:
 
 ```py
 import asyncio
-import lively.eval_server
+import lively.ws_server
 loop = asyncio.get_event_loop()
-lively.eval_server.start(hostname="0.0.0.0", port=9942, loop=loop)
+lively.ws_server.start(hostname="0.0.0.0", port=9942, loop=loop)
 loop.run_forever()
 ```
 

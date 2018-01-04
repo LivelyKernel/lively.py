@@ -2,21 +2,30 @@ import sys
 import asyncio
 import json
 import ast
+from sexpdata import SExpBase
 from logging import warning
 
-class EvalResult(object):
+
+class EvalResult(SExpBase):
     """result of run_eval"""
 
     def __init__(self, value, is_error=False):
+        super().__init__(value)
         self.value = value
         self.is_error = is_error
 
-    def json_stringify(self):
-        return json.dumps({
+    def as_dict(self):
+        return {
             'isError': self.is_error,
             "isEvalResult": True,
             "value": repr(self.value)
-        })
+        }
+
+    def json_stringify(self):
+        return json.dumps(self.as_dict())
+
+    def tosexp(self, tosexp):
+        return tosexp(self.as_dict())
 
 
 class Evaluation(object):
