@@ -9,10 +9,10 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 def tests():
-    return unittest.findTestCases("lively.tests.test_interface")
-    # test_loader = unittest.TestLoader()
-    # test_suite = test_loader.discover('tests', top_level_dir="lively")
-    # return test_suite
+    # return unittest.findTestCases("lively.tests.test_interface")
+    test_loader = unittest.TestLoader()
+    test_suite = test_loader.discover('tests', top_level_dir="lively")
+    return test_suite
 
 setup(
     name = 'lively',

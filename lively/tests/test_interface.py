@@ -10,11 +10,17 @@ from lively.code_formatting import code_format
 
 from lively.tests.helper import async_test
 
+# runner = unittest.TextTestRunner()
+# suite = unittest.TestSuite()
+# suite.addTests([EvalTestCase(k) for k,v in EvalTestCase.__dict__.items() if k.startswith("test_")])
+# runner.run(suite)
+
+
 class EvalTestCase(TestCase):
 
     def test_sync_eval(self):
         result = sync_eval("1+2")
-        expected = {'isError': False, 'isEvalResult': True, 'value': '3'}
+        expected = {'isError': False, 'isEvalResult': True, 'value': '3', "stdout": '', "stderr": ''}
         self.assertEqual(result.json_stringify(), json.dumps(expected))
 
     def test_eval_in_file(self):
@@ -55,12 +61,11 @@ class CompletionTest(TestCase):
     async def test_get_completions(self):
         completions = await get_completions("import os\nos.p\n", 2, 3, file=None)
         path_compl, = [c for c in completions if c.get("name") == "path"]
-        self.assertDictContainsSubset(
-            {'full_name': 'os.path',
-             'is_keyword': False,
-             'module_name': 'os',
-             'type': 'module'},
-            path_compl)
+        self.assertTrue(
+            set({'full_name': 'os.path',
+                 'is_keyword': False,
+                 'module_name': 'os',
+                 'type': 'module'}.items()).issubset(set(path_compl.items())))
 
 
 class CodeFormatTest(TestCase):

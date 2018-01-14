@@ -23,7 +23,7 @@ async def get_completions(source, row, column, file="<completions>"):
 
 
     # try to eval code snippet in front of column and dynamically use dir() on eval result
-    line = source.splitlines()[row-1][:column]
+    line = source.splitlines()[row - 1][:column]
     *_, expr = line.split(" ")
     prefix = ""
     if expr.endswith("."):
@@ -33,7 +33,8 @@ async def get_completions(source, row, column, file="<completions>"):
         expr = ".".join(front_parts)
 
     result = await run_eval(expr)
-    if result.isError: return []
+    if result.is_error:
+        return []
 
     for key in dir(result.value):
         if len(prefix) > 0 and not key.startswith(prefix):
@@ -41,7 +42,7 @@ async def get_completions(source, row, column, file="<completions>"):
         try:
             val = getattr(result.value, key)
         except Exception:
-            continue;
+            continue
         name = key
         if (inspect.ismethod(val)):
             type = "function"

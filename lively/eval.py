@@ -1,4 +1,5 @@
 import sys
+import io
 import asyncio
 import json
 import ast
@@ -9,8 +10,11 @@ from logging import warning
 class EvalResult(SExpBase):
     """result of run_eval"""
 
-    def __init__(self, value, is_error=False):
+    def __init__(self, value, stdout="", stderr="", is_error=False):
         super().__init__(value)
+        self.value = value
+        self.stdout = stdout
+        self.stderr = stderr
         self.value = value
         self.is_error = is_error
 
@@ -18,7 +22,9 @@ class EvalResult(SExpBase):
         return {
             'isError': self.is_error,
             "isEvalResult": True,
-            "value": repr(self.value)
+            "value": repr(self.value),
+            "stdout": self.stdout,
+            "stderr": self.stderr
         }
 
     def json_stringify(self):
@@ -52,17 +58,16 @@ class Evaluation(object):
                          "    __eval_done__(__eval__(), False)\n"
                          "except Exception as exc:\n"
                          "    __eval_done__(exc, True)\n")
-    source = ""
-    status = "not started"
-    result = None
+    source: str = ""
+    status: str = "not started"
+    result: EvalResult = None
 
     def __init__(self, source, module_name):
         self.source = source
         self.module_name = module_name
 
     def is_valid(self, source, allow_async=False, module=None):
-        source = self.__validation_template__.format("\n        ".join(
-            source.splitlines()))
+        source = self.__validation_template__.format("\n        ".join(source.splitlines()))
         parsed = ast.parse(source, mode='exec')
         errors = []
         for node in parsed.body[0].body:
@@ -118,10 +123,16 @@ class Evaluation(object):
         "internal, do not use"
 
         # if module is specified, look it up. If not loaded, import it.
-        eval_in_module = sys.modules.get(self.module_name or __name__)
+        eval_in_module = sys.modules.get(self.module_name or "__main__" or __name__)
         if not eval_in_module:
-            __import__(self.module_name)
-            eval_in_module = sys.modules.get(self.module_name or __name__)
+            try:
+                __import__(self.module_name)
+                eval_in_module = sys.modules.get(self.module_name)
+                if not eval_in_module:
+                    raise Exception("module " + self.module_name + " not found")
+            except Exception:
+                warning("[eval] could not load module %s".format(self.module_name))
+                eval_in_module = sys.modules.get("__main__" or __name__)
 
         if not eval_in_module:
             raise Exception("[lively eval] could not find module " + self.module_name)
@@ -144,13 +155,23 @@ class Evaluation(object):
                 warning("[lively eval] done callback was called multiple times, ignoring")
             else:
                 _globals.__setitem__("__eval_done_called__", call_count + 1)
-                self.result = EvalResult(value, is_error)
+                sys.stdout, sys.stderr = oldout, olderr
+                stdout = eval_output[0].getvalue()
+                stderr = eval_output[1].getvalue()
+
+                self.result = EvalResult(value, stdout, stderr, is_error)
                 self.status = "done"
                 if when_done:
                     when_done(self.result)
 
         _globals.__setitem__("__eval_done__", __eval_done__)
         _globals.__setitem__("__eval_done_called__", 0)
+
+        # capture stdout + stderr
+        oldout, olderr = sys.stdout, sys.stderr
+        eval_output = [io.StringIO(), io.StringIO()]
+        sys.stdout, sys.stderr = eval_output
+
 
         exec(compile(parsed, eval_in_module.__file__, 'exec'), _globals, _locals)
 
