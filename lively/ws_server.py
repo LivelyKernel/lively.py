@@ -16,6 +16,7 @@ debug = True
 
 async def handle_eval(data, websocket):
     source = data.get("source")
+    module_name = data.get("moduleName")
 
     if not source:
         await websocket.send(json.dumps({"error": "needs source"}))
@@ -25,7 +26,7 @@ async def handle_eval(data, websocket):
         print("evaluating {}".format(
             (source[:30] + "..." if len(source) > 30 else source).replace("\n", "")))
 
-    result = await run_eval(source)
+    result = await run_eval(source, module_name, websocket)
     # if debug: print("eval done", result, result.json_stringify())
     await websocket.send(result.json_stringify())
 
@@ -91,6 +92,10 @@ async def handler(websocket, path):
     if debug:
         print("got connection")
     connections.add(websocket)
+
+    # allow client to send itself extra data
+    websocket.send_raw_data = lambda data: websocket.send(data)
+
     while True:
         try:
             message = await websocket.recv()

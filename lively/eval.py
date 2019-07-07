@@ -62,9 +62,10 @@ class Evaluation(object):
     status: str = "not started"
     result: EvalResult = None
 
-    def __init__(self, source, module_name):
+    def __init__(self, source, module_name, connection):
         self.source = source
         self.module_name = module_name
+        self.connection = connection
 
     def is_valid(self, source, allow_async=False, module=None):
         source = self.__validation_template__.format("\n        ".join(source.splitlines()))
@@ -167,6 +168,9 @@ class Evaluation(object):
         _globals.__setitem__("__eval_done__", __eval_done__)
         _globals.__setitem__("__eval_done_called__", 0)
 
+        # provide optional connection to eval for meta requests
+        _globals.__setitem__("__lively_connection__", self.connection)
+
         # capture stdout + stderr
         oldout, olderr = sys.stdout, sys.stderr
         eval_output = [io.StringIO(), io.StringIO()]
@@ -185,11 +189,11 @@ def sync_eval(source, module_name=None):
     return Evaluation(source, module_name).sync_eval()
 
 
-def run_eval(source, module_name=None):
+def run_eval(source, module_name=None, connection=None):
     """Evalualtes source in module specified by module_name and returns future. Note
     that you can use top-level await statements inside source."""
     result_fut = asyncio.Future()
-    Evaluation(source, module_name).run_eval(
+    Evaluation(source, module_name, connection).run_eval(
         lambda result: result_fut.set_result(result))
     return result_fut
 
