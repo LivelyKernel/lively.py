@@ -139,3 +139,8 @@ def start_in_subprocess(**opts):
     process = Process(target=spawn, kwargs=opts)
     process.start()
     return process
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    start(loop=loop)
+    loop.run_forever()
